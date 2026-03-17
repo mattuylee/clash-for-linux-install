@@ -86,6 +86,21 @@ _color_log() {
     printf "%b%s%b\n" "$color_code" "$msg" "$reset_code"
 }
 
+_color_log_inline() {
+    local color="$1"
+    local msg="$2"
+
+    local hex="${color#\#}"
+    local r=$((16#${hex:0:2}))
+    local g=$((16#${hex:2:2}))
+    local b=$((16#${hex:4:2}))
+
+    local color_code="\033[38;2;${r};${g};${b}m"
+    local reset_code="\033[0m"
+
+    printf "%b%s%b" "$color_code" "$msg" "$reset_code"
+}
+
 function _okcat() {
     local color=#c8d6e5
     local emoji=😼
@@ -93,6 +108,14 @@ function _okcat() {
     local msg="${emoji} $1"
     _color_log "$color" "$msg"
     return 0
+}
+
+function _promptcat() {
+    local color=#c8d6e5
+    local emoji=😼
+    [ $# -gt 1 ] && emoji=$1 && shift
+    local msg="${emoji} $1"
+    _color_log_inline "$color" "$msg"
 }
 
 function _failcat() {

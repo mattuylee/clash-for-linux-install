@@ -163,7 +163,61 @@ function clashlog() {
     placeholder_log "$@"
 }
 
+_clashui_display_width() {
+    local text=$1
+
+    if command -v python3 >/dev/null 2>&1; then
+        TEXT="$text" python3 - <<'PY'
+import os
+import re
+import unicodedata
+
+text = os.environ.get("TEXT", "")
+text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
+
+width = 0
+for ch in text:
+    if ch in ("\ufe0f", "\u200d") or unicodedata.combining(ch):
+        continue
+    width += 2 if unicodedata.east_asian_width(ch) in ("F", "W") else 1
+
+print(width)
+PY
+        return
+    fi
+
+    printf '%s' "$text" | awk '{ print length($0) }'
+}
+
+_clashui_pad_right() {
+    local text=$1
+    local width=$2
+    local display_width
+    display_width=$(_clashui_display_width "$text")
+
+    local padding=$((width - display_width))
+    [ "$padding" -lt 0 ] && padding=0
+
+    printf '%s%*s' "$text" "$padding" ''
+}
+
+_clashui_pad_center() {
+    local text=$1
+    local width=$2
+    local display_width
+    display_width=$(_clashui_display_width "$text")
+
+    local padding=$((width - display_width))
+    [ "$padding" -lt 0 ] && padding=0
+
+    local left_padding=$((padding / 2))
+    local right_padding=$((padding - left_padding))
+
+    printf '%*s%s%*s' "$left_padding" '' "$text" "$right_padding" ''
+}
+
 function clashui() {
+    local box_width=47
     _detect_ext_addr
     clashstatus >&/dev/null || clashon >/dev/null
     local query_url='api64.ipify.org' # ifconfig.me
@@ -172,15 +226,16 @@ function clashui() {
 
     local local_ip=$EXT_IP
     local local_address="http://${local_ip}:${EXT_PORT}/ui"
+    local title=$(_okcat 'Web 控制台')
     printf "\n"
     printf "╔═══════════════════════════════════════════════╗\n"
-    printf "║                %s                  ║\n" "$(_okcat 'Web 控制台')"
+    printf "║%s║\n" "$(_clashui_pad_center "$title" "$box_width")"
     printf "║═══════════════════════════════════════════════║\n"
     printf "║                                               ║\n"
-    printf "║     🔓 注意放行端口：%-5s                    ║\n" "$EXT_PORT"
-    printf "║     🏠 内网：%-31s  ║\n" "$local_address"
-    printf "║     🌏 公网：%-31s  ║\n" "$public_address"
-    printf "║     ☁️  公共：%-31s  ║\n" "$URL_CLASH_UI"
+    printf "║%s║\n" "$(_clashui_pad_right "     🔓 注意放行端口：$EXT_PORT" "$box_width")"
+    printf "║%s║\n" "$(_clashui_pad_right "     🏠 内网：$local_address" "$box_width")"
+    printf "║%s║\n" "$(_clashui_pad_right "     🌏 公网：$public_address" "$box_width")"
+    printf "║%s║\n" "$(_clashui_pad_right "     ☁️  公共：$URL_CLASH_UI" "$box_width")"
     printf "║                                               ║\n"
     printf "╚═══════════════════════════════════════════════╝\n"
     printf "\n"
@@ -589,7 +644,7 @@ EOF
 _sub_add() {
     local url=$1
     [ -z "$url" ] && {
-        echo -n "$(_okcat '✈️ ' '请输入要添加的订阅链接：')"
+        _promptcat '✈️' '请输入要添加的订阅链接：'
         read -r url
         [ -z "$url" ] && _error_quit "订阅链接不能为空"
     }
@@ -619,7 +674,7 @@ _sub_add() {
 _sub_del() {
     local id=$1
     [ -z "$id" ] && {
-        echo -n "$(_okcat '✈️ ' '请输入要删除的订阅 id：')"
+        _promptcat '✈️' '请输入要删除的订阅 id：'
         read -r id
         [ -z "$id" ] && _error_quit "订阅 id 不能为空"
     }
@@ -642,7 +697,7 @@ _sub_use() {
     local id=$1
     [ -z "$id" ] && {
         clashsub ls
-        echo -n "$(_okcat '✈️ ' '请输入要使用的订阅 id：')"
+        _promptcat '✈️' '请输入要使用的订阅 id：'
         read -r id
         [ -z "$id" ] && _error_quit "订阅 id 不能为空"
     }
