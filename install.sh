@@ -10,7 +10,7 @@ _prepare_zip
 _detect_init
 
 _okcat "安装内核：$KERNEL_NAME by ${INIT_TYPE}"
-_okcat '📦' "安装路径：$CLASH_BASE_DIR"
+_okcat "安装路径：$CLASH_BASE_DIR"
 
 /bin/cp -rf . "$CLASH_BASE_DIR"
 touch "$CLASH_CONFIG_BASE"
@@ -27,7 +27,7 @@ clashui
 clashsecret "$(_get_random_val)" >/dev/null
 clashsecret
 
-_okcat '🎉' 'enjoy 🎉'
+_okcat '安装完成'
 clashctl
 
 _valid_config "$CLASH_CONFIG_BASE" && CLASH_CONFIG_URL="file://$CLASH_CONFIG_BASE"

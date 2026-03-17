@@ -60,7 +60,7 @@ _detect_proxy_port() {
         [ -n "$var_val" ] && _is_port_used "$var_val" && [ "$isActive" != "true" ] && {
             newPort=$(_get_random_port)
             ((count++))
-            _failcat '🎯' "端口冲突：[$yaml_key] $var_val 🎲 随机分配 $newPort"
+            _failcat 'PORT' "端口冲突：[$yaml_key] $var_val 随机分配 $newPort"
             "$BIN_YQ" -i ".${yaml_key} = $newPort" "$CLASH_CONFIG_MIXIN"
         }
     done
@@ -163,61 +163,7 @@ function clashlog() {
     placeholder_log "$@"
 }
 
-_clashui_display_width() {
-    local text=$1
-
-    if command -v python3 >/dev/null 2>&1; then
-        TEXT="$text" python3 - <<'PY'
-import os
-import re
-import unicodedata
-
-text = os.environ.get("TEXT", "")
-text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
-
-width = 0
-for ch in text:
-    if ch in ("\ufe0f", "\u200d") or unicodedata.combining(ch):
-        continue
-    width += 2 if unicodedata.east_asian_width(ch) in ("F", "W") else 1
-
-print(width)
-PY
-        return
-    fi
-
-    printf '%s' "$text" | awk '{ print length($0) }'
-}
-
-_clashui_pad_right() {
-    local text=$1
-    local width=$2
-    local display_width
-    display_width=$(_clashui_display_width "$text")
-
-    local padding=$((width - display_width))
-    [ "$padding" -lt 0 ] && padding=0
-
-    printf '%s%*s' "$text" "$padding" ''
-}
-
-_clashui_pad_center() {
-    local text=$1
-    local width=$2
-    local display_width
-    display_width=$(_clashui_display_width "$text")
-
-    local padding=$((width - display_width))
-    [ "$padding" -lt 0 ] && padding=0
-
-    local left_padding=$((padding / 2))
-    local right_padding=$((padding - left_padding))
-
-    printf '%*s%s%*s' "$left_padding" '' "$text" "$right_padding" ''
-}
-
 function clashui() {
-    local box_width=47
     _detect_ext_addr
     clashstatus >&/dev/null || clashon >/dev/null
     local query_url='api64.ipify.org' # ifconfig.me
@@ -226,18 +172,12 @@ function clashui() {
 
     local local_ip=$EXT_IP
     local local_address="http://${local_ip}:${EXT_PORT}/ui"
-    local title=$(_okcat 'Web 控制台')
     printf "\n"
-    printf "╔═══════════════════════════════════════════════╗\n"
-    printf "║%s║\n" "$(_clashui_pad_center "$title" "$box_width")"
-    printf "║═══════════════════════════════════════════════║\n"
-    printf "║                                               ║\n"
-    printf "║%s║\n" "$(_clashui_pad_right "     🔓 注意放行端口：$EXT_PORT" "$box_width")"
-    printf "║%s║\n" "$(_clashui_pad_right "     🏠 内网：$local_address" "$box_width")"
-    printf "║%s║\n" "$(_clashui_pad_right "     🌏 公网：$public_address" "$box_width")"
-    printf "║%s║\n" "$(_clashui_pad_right "     ☁️  公共：$URL_CLASH_UI" "$box_width")"
-    printf "║                                               ║\n"
-    printf "╚═══════════════════════════════════════════════╝\n"
+    _okcat 'Web 控制台'
+    printf "放行端口: %s\n" "$EXT_PORT"
+    printf "内网地址: %s\n" "$local_address"
+    printf "公网地址: %s\n" "$public_address"
+    printf "公共地址: %s\n" "$URL_CLASH_UI"
     printf "\n"
 }
 
@@ -565,7 +505,7 @@ EOF
 
     _detect_ext_addr
     clashstatus >&/dev/null || clashon >/dev/null
-    _okcat '⏳' "请求内核升级..."
+    _okcat 'INFO' "请求内核升级..."
     [ "$log_flag" = true ] && {
         log_cmd=(placeholder_follow_log)
         ("${log_cmd[@]}" &)
@@ -644,7 +584,7 @@ EOF
 _sub_add() {
     local url=$1
     [ -z "$url" ] && {
-        _promptcat '✈️' '请输入要添加的订阅链接：'
+        printf '请输入要添加的订阅链接：'
         read -r url
         [ -z "$url" ] && _error_quit "订阅链接不能为空"
     }
@@ -668,13 +608,13 @@ _sub_add() {
            \"url\": \"$url\"
          }]
     " "$CLASH_PROFILES_META"
-    _logging_sub "➕ 已添加订阅：[$id] $url"
-    _okcat '🎉' "订阅已添加：[$id] $url"
+    _logging_sub "已添加订阅：[$id] $url"
+    _okcat "订阅已添加：[$id] $url"
 }
 _sub_del() {
     local id=$1
     [ -z "$id" ] && {
-        _promptcat '✈️' '请输入要删除的订阅 id：'
+        printf '请输入要删除的订阅 id：'
         read -r id
         [ -z "$id" ] && _error_quit "订阅 id 不能为空"
     }
@@ -685,8 +625,8 @@ _sub_del() {
     [ "$use" = "$id" ] && _error_quit "删除失败：订阅 $id 正在使用中，请先切换订阅"
     /usr/bin/rm -f "$profile_path"
     "$BIN_YQ" -i "del(.profiles[] | select(.id == \"$id\"))" "$CLASH_PROFILES_META"
-    _logging_sub "➖ 已删除订阅：[$id] $url"
-    _okcat '🎉' "订阅已删除：[$id] $url"
+    _logging_sub "已删除订阅：[$id] $url"
+    _okcat "订阅已删除：[$id] $url"
 }
 _sub_list() {
     "$BIN_YQ" "$CLASH_PROFILES_META"
@@ -697,7 +637,7 @@ _sub_use() {
     local id=$1
     [ -z "$id" ] && {
         clashsub ls
-        _promptcat '✈️' '请输入要使用的订阅 id：'
+        printf '请输入要使用的订阅 id：'
         read -r id
         [ -z "$id" ] && _error_quit "订阅 id 不能为空"
     }
@@ -707,8 +647,8 @@ _sub_use() {
     cat "$profile_path" >"$CLASH_CONFIG_BASE"
     _merge_config_restart
     "$BIN_YQ" -i ".use = $id" "$CLASH_PROFILES_META"
-    _logging_sub "🔥 订阅已切换为：[$id] $url"
-    _okcat '🔥' '订阅已生效'
+    _logging_sub "订阅已切换为：[$id] $url"
+    _okcat '订阅已生效'
 }
 _get_path_by_id() {
     "$BIN_YQ" -e ".profiles[] | select(.id == \"$1\") | .path" "$CLASH_PROFILES_META" 2>/dev/null
@@ -742,7 +682,7 @@ _sub_update() {
     local url profile_path
     url=$(_get_url_by_id "$id") || _error_quit "订阅 id 不存在，请检查"
     profile_path=$(_get_path_by_id "$id")
-    _okcat "✈️ " "更新订阅：[$id] $url"
+    _okcat "更新订阅：[$id] $url"
 
     [ "$is_convert" = true ] && {
         _download_convert_config "$CLASH_CONFIG_TEMP" "$url"
@@ -751,13 +691,13 @@ _sub_update() {
         _download_config "$CLASH_CONFIG_TEMP" "$url"
     }
     _valid_config "$CLASH_CONFIG_TEMP" || {
-        _logging_sub "❌ 订阅更新失败：[$id] $url"
+        _logging_sub "订阅更新失败：[$id] $url"
         _error_quit "订阅无效：请检查：
     原始订阅：${CLASH_CONFIG_TEMP}.raw
     转换订阅：$CLASH_CONFIG_TEMP
     转换日志：$BIN_SUBCONVERTER_LOG"
     }
-    _logging_sub "✅ 订阅更新成功：[$id] $url"
+    _logging_sub "订阅更新成功：[$id] $url"
     cat "$CLASH_CONFIG_TEMP" >"$profile_path"
     use=$("$BIN_YQ" '.use // ""' "$CLASH_PROFILES_META")
     [ "$use" = "$id" ] && clashsub use "$use" && return

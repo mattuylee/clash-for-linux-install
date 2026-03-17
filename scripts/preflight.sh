@@ -132,12 +132,12 @@ _download_zip() {
     )
 
     local item target_zips=()
-    _okcat '🖥️ ' "系统架构：$arch $level"
+    _okcat "系统架构：$arch $level"
     for item in "$@"; do
         local url="${urls[$item]}"
         local proxy_url="${URL_GH_PROXY:+${URL_GH_PROXY%/}/}${url}"
         [ "$item" != 'clash' ] && url="$proxy_url"
-        _okcat '⏳' "正在下载：${item}：$url"
+        _okcat 'INFO' "正在下载：${item}：$url"
         local target="${ZIP_BASE_DIR}/$(basename "$url")"
         curl \
             --progress-bar \
@@ -327,7 +327,7 @@ _install_service() {
         -e "s#placeholder_watch_proxy#${service_watch_proxy[*]}#g" \
         "$CLASH_CMD_DIR/clashctl.sh" "$CLASH_CMD_DIR/common.sh"
 
-    "${service_enable[@]}" >&/dev/null && _okcat '🚀' '已设置开机自启'
+    "${service_enable[@]}" >&/dev/null && _okcat '已设置开机自启'
     ((${#service_reload[@]})) && "${service_reload[@]}"
 }
 _uninstall_service() {

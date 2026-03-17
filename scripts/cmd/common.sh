@@ -64,7 +64,7 @@ function _detect_ext_addr() {
     _is_port_used "$EXT_PORT" && {
         curl -s --noproxy "*" -H "Authorization: Bearer $(_get_secret)" "127.0.0.1:${EXT_PORT}" | grep -qs "${KERNEL_NAME}" && return 0
         local newPort=$(_get_random_port)
-        _failcat '🎯' "端口冲突：[external-controller] ${EXT_PORT} 🎲 随机分配 $newPort"
+        _failcat 'PORT' "端口冲突：[external-controller] ${EXT_PORT} 随机分配 $newPort"
         EXT_PORT=$newPort
         "$BIN_YQ" -i ".external-controller = \"$ext_ip:$newPort\"" "$CLASH_CONFIG_MIXIN"
         _merge_config
@@ -86,43 +86,20 @@ _color_log() {
     printf "%b%s%b\n" "$color_code" "$msg" "$reset_code"
 }
 
-_color_log_inline() {
-    local color="$1"
-    local msg="$2"
-
-    local hex="${color#\#}"
-    local r=$((16#${hex:0:2}))
-    local g=$((16#${hex:2:2}))
-    local b=$((16#${hex:4:2}))
-
-    local color_code="\033[38;2;${r};${g};${b}m"
-    local reset_code="\033[0m"
-
-    printf "%b%s%b" "$color_code" "$msg" "$reset_code"
-}
-
 function _okcat() {
     local color=#c8d6e5
-    local emoji=😼
-    [ $# -gt 1 ] && emoji=$1 && shift
-    local msg="${emoji} $1"
+    local prefix='OK'
+    [ $# -gt 1 ] && prefix=$1 && shift
+    local msg="${prefix} $1"
     _color_log "$color" "$msg"
     return 0
 }
 
-function _promptcat() {
-    local color=#c8d6e5
-    local emoji=😼
-    [ $# -gt 1 ] && emoji=$1 && shift
-    local msg="${emoji} $1"
-    _color_log_inline "$color" "$msg"
-}
-
 function _failcat() {
     local color=#fd79a8
-    local emoji=😾
-    [ $# -gt 1 ] && emoji=$1 && shift
-    local msg="${emoji} $1"
+    local prefix='ERR'
+    [ $# -gt 1 ] && prefix=$1 && shift
+    local msg="${prefix} $1"
     _color_log "$color" "$msg" >&2
     return 1
 }
@@ -130,9 +107,9 @@ function _failcat() {
 function _error_quit() {
     [ $# -gt 0 ] && {
         local color=#f92f60
-        local emoji=📢
-        [ $# -gt 1 ] && emoji=$1 && shift
-        local msg="${emoji} $1"
+        local prefix='ERR'
+        [ $# -gt 1 ] && prefix=$1 && shift
+        local msg="${prefix} $1"
         _color_log "$color" "$msg"
     }
     exec $SHELL -i
@@ -157,11 +134,11 @@ function _valid_config() {
 function _download_config() {
     local dest=$1
     local url=$2
-    [ "${url:0:4}" = 'file' ] || _okcat '⏳' '正在下载...'
+    [ "${url:0:4}" = 'file' ] || _okcat 'INFO' '正在下载...'
     _download_raw_config "$dest" "$url" || return 1
-    _okcat '🍃' '验证订阅配置...'
+    _okcat 'INFO' '验证订阅配置...'
     _valid_config "$dest" || {
-        _failcat '🍂' "验证失败：尝试订阅转换..."
+        _failcat 'WARN' "验证失败：尝试订阅转换..."
         cat "$dest" >"${dest}.raw"
         _download_convert_config "$dest" "$url"
     }
@@ -220,7 +197,7 @@ _detect_subconverter_port() {
     BIN_SUBCONVERTER_PORT=$("$BIN_YQ" '.server.port' "$BIN_SUBCONVERTER_CONFIG")
     _is_port_used "$BIN_SUBCONVERTER_PORT" && {
         local newPort=$(_get_random_port)
-        _failcat '🎯' "端口冲突：[subconverter] ${BIN_SUBCONVERTER_PORT} 🎲 随机分配：$newPort"
+        _failcat 'PORT' "端口冲突：[subconverter] ${BIN_SUBCONVERTER_PORT} 随机分配：$newPort"
         BIN_SUBCONVERTER_PORT=$newPort
         "$BIN_YQ" -i ".server.port = $newPort" "$BIN_SUBCONVERTER_CONFIG" 2>/dev/null
     }
