@@ -313,6 +313,50 @@ _tunstatus() {
         ;;
     esac
 }
+
+_get_dns_mode() {
+    "$BIN_YQ" '.dns.enhanced-mode // "fake-ip"' "$CLASH_CONFIG_MIXIN"
+}
+_set_dns_mode() {
+    local mode=$1
+    case "$mode" in
+    fakeip | fake-ip)
+        "$BIN_YQ" -i '
+            .dns.enhanced-mode = "fake-ip" |
+            .dns.fake-ip-range = "198.18.0.1/16" |
+            .dns.fake-ip-filter = ["*.lan", "*.local", "localhost.ptlogin2.qq.com", "dns.msftncsi.com", "www.msftconnecttest.com"] |
+            del(.dns.fallback) |
+            del(.dns.fallback-filter)
+        ' "$CLASH_CONFIG_MIXIN"
+        ;;
+    redirhost | redir-host)
+        "$BIN_YQ" -i '
+            .dns.enhanced-mode = "redir-host" |
+            .dns.fallback = ["tls://8.8.8.8", "tls://1.1.1.1"] |
+            .dns.fallback-filter.geoip = true |
+            .dns.fallback-filter.geoip-code = "CN" |
+            del(.dns.fake-ip-range) |
+            del(.dns.fake-ip-filter)
+        ' "$CLASH_CONFIG_MIXIN"
+        ;;
+    *)
+        _failcat "不支持的 DNS 模式：$mode（可选：fakeip, redirhost）"
+        return 1
+        ;;
+    esac
+    _merge_config
+    clashstatus >&/dev/null && {
+        _tunstatus >/dev/null && {
+            _sudo_restart
+        } || {
+            placeholder_stop >/dev/null
+            sleep 0.1
+            placeholder_start >/dev/null
+            sleep 0.1
+        }
+    }
+    _okcat "DNS 模式已切换为：$mode"
+}
 _tunoff() {
     _tunstatus >/dev/null || return 0
     sudo placeholder_stop
@@ -368,7 +412,10 @@ function clashtun() {
 
 - 关闭 Tun 模式
   clashtun off
-  
+
+- 查看/切换 DNS 模式
+  clashtun mode [fakeip|redirhost]
+
 EOF
         return 0
         ;;
@@ -377,6 +424,14 @@ EOF
         ;;
     off)
         _tunoff
+        ;;
+    mode)
+        shift
+        if [ -z "$1" ]; then
+            _okcat "当前 DNS 模式：$(_get_dns_mode)"
+        else
+            _set_dns_mode "$1"
+        fi
         ;;
     *)
         _tunstatus
